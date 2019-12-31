@@ -1,15 +1,16 @@
 package errors
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"runtime"
 )
 
 type Frame struct {
-	Function string `json:"function"`
-	File     string `json:"file"`
-	Line     int    `json:"line"`
+	Function string `json:"function,omitempty"`
+	File     string `json:"file,omitempty"`
+	Line     int    `json:"line,omitempty"`
 }
 
 const StackBufferSize = 100
@@ -19,6 +20,7 @@ type Error interface {
 	WithMeta(meta map[string]interface{}) Error
 	WithStack() Error
 	Is(err error) bool
+	MarshalJSON() ([]byte, error)
 }
 
 type Err struct {
@@ -78,14 +80,28 @@ func getStack(skip int) []Frame {
 	out := make([]Frame, 0, length)
 	for {
 		frame, more := frames.Next()
-		out = append(out, Frame{
-			Function: frame.Func.Name(),
-			File:     frame.File,
-			Line:     frame.Line,
-		})
+
 		if !more {
 			break
 		}
+		fn := frame.Func.Name()
+		if fn == "runtime.main" || fn == "runtime.goexit" {
+			continue
+		}
+		out = append(out, Frame{
+			Function: fn,
+			File:     frame.File,
+			Line:     frame.Line,
+		})
 	}
 	return out
+}
+
+func (err *Err) MarshalJSON() ([]byte, error) {
+	toJson := map[string]interface{}{
+		"error": err.Err.Error(),
+		"stack": err.Stack,
+		"meta":  err.Meta,
+	}
+	return json.Marshal(toJson)
 }
