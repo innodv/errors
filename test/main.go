@@ -20,6 +20,10 @@ func bar() {
 
 }
 
+func getError() error {
+	return errors.New("fo")
+}
+
 func baz() {
 	err := errors.New("fo")
 	fmt.Println(err)
