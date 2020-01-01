@@ -109,6 +109,9 @@ func (err *Err) Error() string {
 }
 
 func (err *Err) WithMeta(meta map[string]interface{}) Error {
+	if err.Meta == nil {
+		err.Meta = map[string]interface{}{}
+	}
 	for k, v := range meta {
 		err.Meta[k] = v
 	}
