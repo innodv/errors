@@ -8,17 +8,19 @@ package errors
 
 import (
 	"encoding/json"
-	"errors"
+	errs "errors"
 	"fmt"
 	"runtime"
-
-	errs "github.com/pkg/errors"
 )
 
 type Frame struct {
 	Function string `json:"function,omitempty"`
 	File     string `json:"file,omitempty"`
 	Line     int    `json:"line,omitempty"`
+}
+
+func (frame Frame) String() string {
+	return fmt.Sprintf("\"%s:%d %s()\"", frame.File, frame.Line, frame.Function)
 }
 
 const StackBufferSize = 100
@@ -29,17 +31,20 @@ type Error interface {
 	WithStack() Error
 	Is(err error) bool
 	MarshalJSON() ([]byte, error)
+	Unwrap() error
 }
 
 type Err struct {
-	Err   error                  `json:"error"`
-	Stack []Frame                `json:"stack"`
-	Meta  map[string]interface{} `json:"meta"`
+	Err     error                  `json:"error"`
+	Message string                 `json:"message"`
+	Stack   []Frame                `json:"stack"`
+	Meta    map[string]interface{} `json:"meta"`
 }
 
-func _new(e interface{}, depth int) Error {
+func _new(e interface{}, err error, depth int) Error {
 	out := Plain(e).(*Err)
 	out.Stack = getStack(depth)
+	out.Err = err
 	return out
 }
 
@@ -54,9 +59,9 @@ func Plain(e interface{}) Error {
 	case *Err:
 		return err
 	case error:
-		out.Err = err
+		out.Message = err.Error()
 	default:
-		out.Err = fmt.Errorf("%v", e)
+		out.Message = fmt.Sprintf("%v", e)
 	}
 	return out
 }
@@ -65,36 +70,41 @@ func New(e interface{}) Error {
 	if e == nil {
 		return nil
 	}
-	return _new(e, 2)
+	return _new(e, nil, 2)
+}
+
+func _wrap(err error, message string) Error {
+	if err == nil {
+		return nil
+	}
+	out := &Err{
+		Err:     err,
+		Message: message,
+	}
+	if e, ok := err.(*Err); ok {
+		out.Stack = e.Stack
+		out.Meta = e.Meta
+	}
+	return out
 }
 
 func Wrap(err error, message string) Error {
-	if err == nil {
-		return nil
-	}
-	if e, ok := err.(*Err); ok {
-		e.Err = errs.Wrap(err, message)
-		return e
-	}
-	return _new(errs.Wrap(err, message), 2)
+	return _wrap(err, message)
+
 }
 
 func Wrapf(err error, format string, args ...interface{}) error {
-	if err == nil {
-		return nil
-	}
-	if e, ok := err.(*Err); ok {
-		e.Err = errs.Wrap(e.Err, fmt.Sprintf(format, args...))
-		return e
-	}
-	return _new(errs.Wrap(err, fmt.Sprintf(format, args...)), 2)
+	return _wrap(err, fmt.Sprintf(format, args...))
 }
 
 func (err *Err) Error() string {
-	if err == nil || err.Err == nil {
+	if err == nil {
 		return "<nil>"
 	}
-	return err.Err.Error()
+	if err.Err == nil {
+		return err.Message
+	}
+	return err.Err.Error() + ":" + err.Message
 }
 
 func (err *Err) WithMeta(meta map[string]interface{}) Error {
@@ -108,14 +118,13 @@ func (err *Err) WithMeta(meta map[string]interface{}) Error {
 func (err *Err) WithStack() Error {
 	err.Stack = getStack(1)
 	return err
-
 }
 
 func (err *Err) Is(err2 error) bool {
-	if e, ok := err2.(*Err); ok {
-		return errors.Is(err.Err, e.Err)
+	if err.Message == err2.Error() {
+		return true
 	}
-	return errors.Is(err.Err, err2)
+	return errs.Is(err.Err, err2)
 }
 
 func getStack(skip int) []Frame {
@@ -149,9 +158,13 @@ func getStack(skip int) []Frame {
 
 func (err *Err) MarshalJSON() ([]byte, error) {
 	toJson := map[string]interface{}{
-		"error": err.Err.Error(),
+		"error": err.Error(),
 		"stack": err.Stack,
 		"meta":  err.Meta,
 	}
 	return json.Marshal(toJson)
+}
+
+func (err *Err) Unwrap() error {
+	return err.Err
 }
