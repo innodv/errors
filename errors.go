@@ -85,7 +85,7 @@ func _wrap(err error, message string) Error {
 		out.Stack = e.Stack
 		out.Meta = e.Meta
 	} else {
-		out.Stack = getStack(depth)
+		out.Stack = getStack(3)
 	}
 	return out
 }
