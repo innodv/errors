@@ -98,6 +98,20 @@ func Wrapf(err error, format string, args ...interface{}) error {
 	return _wrap(err, fmt.Sprintf(format, args...))
 }
 
+// Standard library passthroughs to allow for use as drop-in replacement
+
+func As(err error, target interface{}) bool {
+	return errs.As(err, target)
+}
+
+func Is(err, target error) bool {
+	return errs.Is(err, target)
+}
+
+func Unwrap(err error) error {
+	return errs.Unwrap(err)
+}
+
 func (err *Err) Error() string {
 	if err == nil {
 		return "<nil>"
@@ -161,10 +175,17 @@ func getStack(skip int) []Frame {
 }
 
 func (err *Err) MarshalJSON() ([]byte, error) {
+	if err == nil {
+		return json.Marshal(nil)
+	}
 	toJson := map[string]interface{}{
 		"error": err.Error(),
-		"stack": err.Stack,
-		"meta":  err.Meta,
+	}
+	if len(err.Stack) > 0 {
+		toJson["stack"] = err.Stack
+	}
+	if len(err.Meta) > 0 {
+		toJson["meta"] = err.Meta
 	}
 	return json.Marshal(toJson)
 }

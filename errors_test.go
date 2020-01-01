@@ -21,6 +21,7 @@ func TestErrors(t *testing.T) {
 	err = Wrap(err, "water buffalo")
 	assert.ElementsMatch(t, stack, err.(*Err).Stack)
 	assert.True(t, errs.Is(err, io.EOF))
+	assert.True(t, Is(err, io.EOF))
 	assert.Equal(t, err.Error(), "foobar:EOF:water buffalo")
 
 }
