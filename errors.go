@@ -41,36 +41,35 @@ type Err struct {
 	Meta    map[string]interface{} `json:"meta"`
 }
 
-func _new(e interface{}, err error, depth int) Error {
-	out := Plain(e).(*Err)
-	out.Stack = getStack(depth)
-	out.Err = err
+func _new(e interface{}, depth int) Error {
+	if e == nil {
+		return nil
+	}
+	var msg string
+	switch val := e.(type) {
+	case *Err:
+		return val
+	case error:
+		msg = val.Error()
+	default:
+		msg = fmt.Sprintf("%v", e)
+	}
+	out := &Err{
+		Meta:    map[string]interface{}{},
+		Message: msg,
+	}
+	if depth != -1 {
+		out.Stack = getStack(depth)
+	}
 	return out
 }
 
 func Plain(e interface{}) Error {
-	if e == nil {
-		return nil
-	}
-	out := &Err{
-		Meta: map[string]interface{}{},
-	}
-	switch err := e.(type) {
-	case *Err:
-		return err
-	case error:
-		out.Message = err.Error()
-	default:
-		out.Message = fmt.Sprintf("%v", e)
-	}
-	return out
+	return _new(e, -1)
 }
 
 func New(e interface{}) Error {
-	if e == nil {
-		return nil
-	}
-	return _new(e, nil, 2)
+	return _new(e, 2)
 }
 
 func _wrap(err error, message string) Error {
@@ -85,7 +84,7 @@ func _wrap(err error, message string) Error {
 		out.Stack = e.Stack
 		out.Meta = e.Meta
 	} else {
-		out.Stack = getStack(3)
+		out.Stack = getStack(2)
 	}
 	return out
 }

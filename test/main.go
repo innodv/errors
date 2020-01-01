@@ -35,6 +35,11 @@ func baz() {
 	fmt.Println(err)
 	res, _ := json.Marshal(err)
 	fmt.Println(string(res))
+
+	err = errors.Wrap(fmt.Errorf("foo"), "foo")
+	fmt.Println(err)
+	res, _ = json.Marshal(err)
+	fmt.Println(string(res))
 }
 
 func main() {
