@@ -52,7 +52,7 @@ func Plain(e interface{}) Error {
 	}
 	switch err := e.(type) {
 	case *Err:
-		out = err
+		return err
 	case error:
 		out.Err = err
 	default:
@@ -84,13 +84,16 @@ func Wrapf(err error, format string, args ...interface{}) error {
 		return nil
 	}
 	if e, ok := err.(*Err); ok {
-		e.Err = errs.Wrap(err, fmt.Sprintf(format, args...))
+		e.Err = errs.Wrap(e.Err, fmt.Sprintf(format, args...))
 		return e
 	}
 	return _new(errs.Wrap(err, fmt.Sprintf(format, args...)), 2)
 }
 
 func (err *Err) Error() string {
+	if err == nil || err.Err == nil {
+		return "<nil>"
+	}
 	return err.Err.Error()
 }
 
