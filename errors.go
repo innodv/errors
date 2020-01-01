@@ -47,12 +47,14 @@ func Plain(e interface{}) Error {
 	out := &Err{
 		Meta: map[string]interface{}{},
 	}
-	if err, ok := e.(error); ok {
+	switch err := e.(type) {
+	case *Err:
+		out = err
+	case error:
 		out.Err = err
-	} else {
+	default:
 		out.Err = fmt.Errorf("%v", e)
 	}
-
 	return out
 }
 
