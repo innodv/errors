@@ -44,6 +44,9 @@ func _new(e interface{}, depth int) Error {
 }
 
 func Plain(e interface{}) Error {
+	if e == nil {
+		return nil
+	}
 	out := &Err{
 		Meta: map[string]interface{}{},
 	}
@@ -59,10 +62,16 @@ func Plain(e interface{}) Error {
 }
 
 func New(e interface{}) Error {
+	if e == nil {
+		return nil
+	}
 	return _new(e, 2)
 }
 
 func Wrap(err error, message string) Error {
+	if err == nil {
+		return nil
+	}
 	if e, ok := err.(*Err); ok {
 		e.Err = errs.Wrap(err, message)
 		return e
@@ -71,6 +80,9 @@ func Wrap(err error, message string) Error {
 }
 
 func Wrapf(err error, format string, args ...interface{}) error {
+	if err == nil {
+		return nil
+	}
 	if e, ok := err.(*Err); ok {
 		e.Err = errs.Wrap(err, fmt.Sprintf(format, args...))
 		return e
