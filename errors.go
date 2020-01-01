@@ -68,6 +68,14 @@ func Wrap(err error, message string) Error {
 	return _new(errs.Wrap(err, message), 2)
 }
 
+func Wrapf(err error, format string, args ...interface{}) error {
+	if e, ok := err.(*Err); ok {
+		e.Err = errs.Wrap(err, fmt.Sprintf(format, args...))
+		return e
+	}
+	return _new(errs.Wrap(err, fmt.Sprintf(format, args...)), 2)
+}
+
 func (err *Err) Error() string {
 	return err.Err.Error()
 }
