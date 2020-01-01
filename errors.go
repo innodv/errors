@@ -38,9 +38,14 @@ type Err struct {
 }
 
 func _new(e interface{}, depth int) Error {
+	out := Plain(e).(*Err)
+	out.Stack = getStack(depth)
+	return out
+}
+
+func Plain(e interface{}) Error {
 	out := &Err{
-		Stack: getStack(depth),
-		Meta:  map[string]interface{}{},
+		Meta: map[string]interface{}{},
 	}
 	if err, ok := e.(error); ok {
 		out.Err = err
