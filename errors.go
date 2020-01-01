@@ -11,6 +11,8 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+
+	errs "github.com/pkg/errors"
 )
 
 type Frame struct {
@@ -35,9 +37,9 @@ type Err struct {
 	Meta  map[string]interface{} `json:"meta"`
 }
 
-func New(e interface{}) Error {
+func _new(e interface{}, depth int) Error {
 	out := &Err{
-		Stack: getStack(1),
+		Stack: getStack(depth),
 		Meta:  map[string]interface{}{},
 	}
 	if err, ok := e.(error); ok {
@@ -47,6 +49,18 @@ func New(e interface{}) Error {
 	}
 
 	return out
+}
+
+func New(e interface{}) Error {
+	return _new(e, 2)
+}
+
+func Wrap(err error, message string) Error {
+	if e, ok := err.(*Err); ok {
+		e.Err = errs.Wrap(err, message)
+		return e
+	}
+	return _new(errs.Wrap(err, message), 2)
 }
 
 func (err *Err) Error() string {
