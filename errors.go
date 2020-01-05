@@ -8,9 +8,12 @@ package errors
 
 import (
 	"encoding/json"
-	errs "errors"
+	"errors"
 	"fmt"
 	"runtime"
+	"sync"
+	"sync/atomic"
+	"unsafe"
 )
 
 type Frame struct {
@@ -35,10 +38,10 @@ type Error interface {
 }
 
 type Err struct {
-	Err     error                  `json:"error"`
-	Message string                 `json:"message"`
-	Stack   []Frame                `json:"stack"`
-	Meta    map[string]interface{} `json:"meta"`
+	Err     error   `json:"error"`
+	Message string  `json:"message"`
+	Stack   []Frame `json:"stack"`
+	meta    *sync.Map
 }
 
 func _new(e interface{}, depth int) Error {
@@ -55,8 +58,8 @@ func _new(e interface{}, depth int) Error {
 		msg = fmt.Sprintf("%v", e)
 	}
 	out := &Err{
-		Meta:    map[string]interface{}{},
 		Message: msg,
+		meta:    &sync.Map{},
 	}
 	if depth != -1 {
 		out.Stack = getStack(depth)
@@ -82,7 +85,7 @@ func _wrap(err error, message string) Error {
 	}
 	if e, ok := err.(*Err); ok {
 		out.Stack = e.Stack
-		out.Meta = e.Meta
+		out.WithMeta(e.Meta())
 	} else {
 		out.Stack = getStack(2)
 	}
@@ -101,15 +104,15 @@ func Wrapf(err error, format string, args ...interface{}) error {
 // Standard library passthroughs to allow for use as drop-in replacement
 
 func As(err error, target interface{}) bool {
-	return errs.As(err, target)
+	return errors.As(err, target)
 }
 
 func Is(err, target error) bool {
-	return errs.Is(err, target)
+	return errors.Is(err, target)
 }
 
 func Unwrap(err error) error {
-	return errs.Unwrap(err)
+	return errors.Unwrap(err)
 }
 
 func (err *Err) Error() string {
@@ -123,11 +126,12 @@ func (err *Err) Error() string {
 }
 
 func (err *Err) WithMeta(meta map[string]interface{}) Error {
-	if err.Meta == nil {
-		err.Meta = map[string]interface{}{}
+	if err.meta == nil {
+		mptr := &sync.Map{}
+		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&err.meta)), unsafe.Pointer(mptr))
 	}
 	for k, v := range meta {
-		err.Meta[k] = v
+		err.meta.Store(k, v)
 	}
 
 	return err
@@ -142,7 +146,16 @@ func (err *Err) Is(err2 error) bool {
 	if err.Message == err2.Error() {
 		return true
 	}
-	return errs.Is(err.Err, err2)
+	return errors.Is(err.Err, err2)
+}
+
+func (err *Err) Meta() map[string]interface{} {
+	out := map[string]interface{}{}
+	err.meta.Range(func(k, v interface{}) bool {
+		out[k.(string)] = v
+		return true
+	})
+	return out
 }
 
 func getStack(skip int) []Frame {
@@ -184,8 +197,9 @@ func (err *Err) MarshalJSON() ([]byte, error) {
 	if len(err.Stack) > 0 {
 		toJson["stack"] = err.Stack
 	}
-	if len(err.Meta) > 0 {
-		toJson["meta"] = err.Meta
+	meta := err.Meta()
+	if len(meta) > 0 {
+		toJson["meta"] = meta
 	}
 	return json.Marshal(toJson)
 }
