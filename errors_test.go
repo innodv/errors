@@ -25,3 +25,24 @@ func TestErrors(t *testing.T) {
 	assert.Equal(t, err.Error(), "foobar:EOF:water buffalo")
 
 }
+
+func TestErrorsImmutable(t *testing.T) {
+	err := New("foobar").WithMeta(map[string]interface{}{
+		"hello": "world",
+	})
+
+	err2 := err.WithMeta(map[string]interface{}{
+		"world": "hello",
+	})
+
+	err3 := err2.WithStack()
+
+	assert.Equal(t, "world", err2.(*Err).Meta["hello"])
+	assert.Equal(t, "world", err.(*Err).Meta["hello"])
+
+	_, ok := err.(*Err).Meta["world"]
+	assert.False(t, ok)
+	assert.NotEqual(t, err, err2)
+
+	assert.NotEqual(t, err2, err3)
+}

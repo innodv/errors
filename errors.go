@@ -8,9 +8,11 @@ package errors
 
 import (
 	"encoding/json"
-	errs "errors"
+	"errors"
 	"fmt"
 	"runtime"
+
+	"github.com/jinzhu/copier"
 )
 
 type Frame struct {
@@ -41,6 +43,36 @@ type Err struct {
 	Meta    map[string]interface{} `json:"meta"`
 }
 
+func _copy(e interface{}) *Err {
+
+	switch err := e.(type) {
+	case *Err:
+		if err == nil {
+			return nil
+		}
+		return _copy(*err)
+	case Err:
+		out := new(Err)
+		copier.Copy(&out, err)
+
+		if err.Meta != nil {
+			out.Meta = map[string]interface{}{}
+			for k, v := range err.Meta {
+				out.Meta[k] = v
+			}
+		}
+		if err.Stack != nil {
+			out.Stack = make([]Frame, len(err.Stack))
+			for i := range out.Stack {
+				copier.Copy(&out.Stack[i], err.Stack[i])
+			}
+		}
+		return out
+	}
+
+	return nil
+}
+
 func _new(e interface{}, depth int) Error {
 	if e == nil {
 		return nil
@@ -48,7 +80,7 @@ func _new(e interface{}, depth int) Error {
 	var msg string
 	switch val := e.(type) {
 	case *Err:
-		return val
+		return _copy(*val)
 	case error:
 		msg = val.Error()
 	default:
@@ -101,15 +133,15 @@ func Wrapf(err error, format string, args ...interface{}) error {
 // Standard library passthroughs to allow for use as drop-in replacement
 
 func As(err error, target interface{}) bool {
-	return errs.As(err, target)
+	return errors.As(err, target)
 }
 
 func Is(err, target error) bool {
-	return errs.Is(err, target)
+	return errors.Is(err, target)
 }
 
 func Unwrap(err error) error {
-	return errs.Unwrap(err)
+	return errors.Unwrap(err)
 }
 
 func (err *Err) Error() string {
@@ -122,27 +154,29 @@ func (err *Err) Error() string {
 	return err.Err.Error() + ":" + err.Message
 }
 
-func (err *Err) WithMeta(meta map[string]interface{}) Error {
-	if err.Meta == nil {
-		err.Meta = map[string]interface{}{}
+func (err Err) WithMeta(meta map[string]interface{}) Error {
+	out := _copy(err)
+	if out.Meta == nil {
+		out.Meta = map[string]interface{}{}
 	}
 	for k, v := range meta {
-		err.Meta[k] = v
+		out.Meta[k] = v
 	}
 
-	return err
+	return out
 }
 
-func (err *Err) WithStack() Error {
-	err.Stack = getStack(1)
-	return err
+func (err Err) WithStack() Error {
+	out := _copy(err)
+	out.Stack = getStack(1)
+	return out
 }
 
-func (err *Err) Is(err2 error) bool {
+func (err Err) Is(err2 error) bool {
 	if err.Message == err2.Error() {
 		return true
 	}
-	return errs.Is(err.Err, err2)
+	return errors.Is(err.Err, err2)
 }
 
 func getStack(skip int) []Frame {
