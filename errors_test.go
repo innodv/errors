@@ -37,6 +37,8 @@ func TestErrorsImmutable(t *testing.T) {
 
 	err3 := err2.WithStack()
 
+	err4 := Wrap(err3, "test")
+
 	assert.Equal(t, "world", err2.(*Err).Meta["hello"])
 	assert.Equal(t, "world", err.(*Err).Meta["hello"])
 
@@ -45,4 +47,8 @@ func TestErrorsImmutable(t *testing.T) {
 	assert.NotEqual(t, err, err2)
 
 	assert.NotEqual(t, err2, err3)
+
+	assert.Equal(t, err4.Unwrap().Error(), err3.Error())
+	err4.(*Err).Err.(*Err).Meta["foo"] = "bar"
+	assert.NotEqual(t, err4.(*Err).Err, err3)
 }
