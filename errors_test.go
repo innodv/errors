@@ -19,13 +19,9 @@ func TestErrors(t *testing.T) {
 	stack := err.(*Err).Stack
 	err = Wrap(err, io.EOF.Error())
 	err = Wrap(err, "water buffalo")
-	err.WithMeta(map[string]interface{}{
-		"test1": "test2",
-	})
 	assert.ElementsMatch(t, stack, err.(*Err).Stack)
 	assert.True(t, errs.Is(err, io.EOF))
 	assert.True(t, Is(err, io.EOF))
 	assert.Equal(t, err.Error(), "foobar:EOF:water buffalo")
-	assert.Equal(t, "test2", err.(*Err).Meta()["test1"])
 
 }
