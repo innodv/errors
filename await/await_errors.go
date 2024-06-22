@@ -7,7 +7,7 @@
 package await
 
 import (
-	"github.com/innodv/errors"
+	"github.com/pkg/errors"
 )
 
 func AwaitErrors(errChan <-chan error, count int) error {
