@@ -124,3 +124,9 @@ func (err *Err) MarshalJSON() ([]byte, error) {
 func (err *Err) Unwrap() error {
 	return err.Err
 }
+
+func MustNotError(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
